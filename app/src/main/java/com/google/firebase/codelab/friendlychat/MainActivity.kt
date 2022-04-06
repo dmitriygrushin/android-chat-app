@@ -46,8 +46,10 @@ class MainActivity : AppCompatActivity() {
         onImageSelected(uri)
     }
 
-    // TODO: implement Firebase instance variables
+    // implement Firebase instance variables
     private lateinit var auth: FirebaseAuth
+    private lateinit var db: FirebaseDatabase
+    private lateinit var adapter: FriendlyMessageAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,8 +78,28 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Initialize Realtime Database and FirebaseRecyclerAdapter
-        // TODO: implement
+        /* Initialize Realtime Database and FirebaseRecyclerAdapter */
+        // Initialize Realtime Database
+        db = Firebase.database
+        val messagesRef = db.reference.child(MESSAGES_CHILD)
+
+        // The FirebaseRecyclerAdapter class and options come from the FirebaseUI library
+        // See: https://github.com/firebase/FirebaseUI-Android
+        val options = FirebaseRecyclerOptions.Builder<FriendlyMessage>()
+            .setQuery(messagesRef, FriendlyMessage::class.java)
+            .build()
+        adapter = FriendlyMessageAdapter(options, getUserName())
+        binding.progressBar.visibility = ProgressBar.INVISIBLE
+        manager = LinearLayoutManager(this)
+        manager.stackFromEnd = true
+        binding.messageRecyclerView.layoutManager = manager
+        binding.messageRecyclerView.adapter = adapter
+
+        // Scroll down when a new message arrives
+        // See MyScrollToBottomObserver for details
+        adapter.registerAdapterDataObserver(
+            MyScrollToBottomObserver(binding.messageRecyclerView, adapter, manager)
+        )
 
         // Disable the send button when there's no text in the input field
         // See MyButtonObserver for details
@@ -104,11 +126,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     public override fun onPause() {
+        adapter.stopListening()
         super.onPause()
     }
 
     public override fun onResume() {
         super.onResume()
+        adapter.startListening()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
